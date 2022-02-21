@@ -1075,7 +1075,7 @@ task checkDeps(dependsOn: configurations.compile) {
         noExceptionThrown()
     }
 
-    def "upgrades version when ranges are disjoint and no top interval artifact is present"() {
+    def "fail when when ranges are disjoint and no top range artifact is present"() {
         given:
         (1..10).each {
             mavenRepo.module("org", "leaf", "$it").publish()
@@ -1102,10 +1102,10 @@ task checkDeps(dependsOn: configurations.compile) {
         """
 
         when:
-        run 'checkDeps'
+        fails 'checkDeps'
 
         then:
-        noExceptionThrown()
+        failure.assertThatCause(containsString("Could not find any version that matches org:leaf:[11,15]."))
     }
 
     def "upgrades version when ranges are disjoint unless failOnVersionConflict is set"() {
