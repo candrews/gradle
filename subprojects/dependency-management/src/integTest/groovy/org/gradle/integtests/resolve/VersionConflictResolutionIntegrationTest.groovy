@@ -1075,6 +1075,39 @@ task checkDeps(dependsOn: configurations.compile) {
         noExceptionThrown()
     }
 
+    def "upgrades version when ranges are disjoint and no top interval artifact is present"() {
+        given:
+        (1..10).each {
+            mavenRepo.module("org", "leaf", "$it").publish()
+        }
+        mavenRepo.module("org", "a", "1.0").dependsOn("org", "leaf", "[1,5]").publish()
+        mavenRepo.module("org", "b", "1.0").dependsOn("org", "leaf", "[11,15]").publish()
+
+        buildFile << """
+            repositories {
+                maven { url "${mavenRepo.uri}" }
+            }
+            configurations {
+                conf
+            }
+            dependencies {
+                conf 'org:a:1.0', 'org:b:1.0'
+            }
+            task checkDeps {
+                doLast {
+                    def files = configurations.conf*.name.sort()
+                    assert files == ['a-1.0.jar', 'b-1.0.jar', 'leaf-5.jar']
+                }
+            }
+        """
+
+        when:
+        run 'checkDeps'
+
+        then:
+        noExceptionThrown()
+    }
+
     def "upgrades version when ranges are disjoint unless failOnVersionConflict is set"() {
         given:
         (1..10).each {
