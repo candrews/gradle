@@ -19,8 +19,6 @@ package org.gradle.execution.plan;
 import org.gradle.api.Describable;
 import org.gradle.api.Task;
 import org.gradle.api.specs.Spec;
-import org.gradle.internal.resources.ResourceLockState;
-import org.gradle.internal.work.WorkerLeaseRegistry;
 
 import javax.annotation.Nullable;
 import java.util.Collection;
@@ -45,7 +43,7 @@ public interface ExecutionPlan extends Describable {
 
         @Nullable
         @Override
-        public Node selectNext(WorkerLeaseRegistry.WorkerLease workerLease, ResourceLockState resourceLockState) {
+        public Node selectNext() {
             return null;
         }
 
@@ -74,6 +72,11 @@ public interface ExecutionPlan extends Describable {
 
         @Override
         public void addEntryTasks(Collection<? extends Task> tasks) {
+            throw new IllegalStateException();
+        }
+
+        @Override
+        public void addEntryTasks(Collection<? extends Task> tasks, int ordinal) {
             throw new IllegalStateException();
         }
 
@@ -139,7 +142,7 @@ public interface ExecutionPlan extends Describable {
      * Selects a work item to run, returns null if there is no work remaining _or_ if no queued work is ready to run.
      */
     @Nullable
-    Node selectNext(WorkerLeaseRegistry.WorkerLease workerLease, ResourceLockState resourceLockState);
+    Node selectNext();
 
     void finishedExecuting(Node node);
 
@@ -157,6 +160,8 @@ public interface ExecutionPlan extends Describable {
     void addNodes(Collection<? extends Node> nodes);
 
     void addEntryTasks(Collection<? extends Task> tasks);
+
+    void addEntryTasks(Collection<? extends Task> tasks, int ordinal);
 
     void determineExecutionPlan();
 

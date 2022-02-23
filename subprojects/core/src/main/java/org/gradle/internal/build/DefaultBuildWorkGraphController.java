@@ -18,8 +18,8 @@ package org.gradle.internal.build;
 
 import org.gradle.api.Task;
 import org.gradle.api.internal.TaskInternal;
-import org.gradle.api.internal.project.ProjectStateRegistry;
 import org.gradle.composite.internal.IncludedBuildTaskResource;
+import org.gradle.composite.internal.TaskIdentifier;
 import org.gradle.execution.plan.BuildWorkPlan;
 import org.gradle.execution.plan.TaskNode;
 import org.gradle.execution.plan.TaskNodeFactory;
@@ -34,28 +34,23 @@ import java.util.function.Consumer;
 
 public class DefaultBuildWorkGraphController implements BuildWorkGraphController {
     private final TaskNodeFactory taskNodeFactory;
-    private final ProjectStateRegistry projectStateRegistry;
     private final BuildLifecycleController controller;
     private final Map<String, DefaultExportedTaskNode> nodesByPath = new ConcurrentHashMap<>();
     private final Object lock = new Object();
     private DefaultBuildWorkGraph current;
 
-    public DefaultBuildWorkGraphController(TaskNodeFactory taskNodeFactory, ProjectStateRegistry projectStateRegistry, BuildLifecycleController controller) {
+    public DefaultBuildWorkGraphController(TaskNodeFactory taskNodeFactory, BuildLifecycleController controller) {
         this.taskNodeFactory = taskNodeFactory;
-        this.projectStateRegistry = projectStateRegistry;
         this.controller = controller;
     }
 
     @Override
-    public ExportedTaskNode locateTask(TaskInternal task) {
-        DefaultExportedTaskNode node = doLocate(task.getPath());
-        node.maybeBindTask(task);
+    public ExportedTaskNode locateTask(TaskIdentifier taskIdentifier) {
+        DefaultExportedTaskNode node = doLocate(taskIdentifier);
+        if (taskIdentifier instanceof TaskIdentifier.TaskBasedTaskIdentifier) {
+            node.maybeBindTask(((TaskIdentifier.TaskBasedTaskIdentifier) taskIdentifier).getTask());
+        }
         return node;
-    }
-
-    @Override
-    public ExportedTaskNode locateTask(String taskPath) {
-        return doLocate(taskPath);
     }
 
     @Override
@@ -69,8 +64,8 @@ public class DefaultBuildWorkGraphController implements BuildWorkGraphController
         }
     }
 
-    private DefaultExportedTaskNode doLocate(String taskPath) {
-        return nodesByPath.computeIfAbsent(taskPath, DefaultExportedTaskNode::new);
+    private DefaultExportedTaskNode doLocate(TaskIdentifier taskIdentifier) {
+        return nodesByPath.computeIfAbsent(taskIdentifier.getTaskPath(), taskPath -> new DefaultExportedTaskNode(taskPath, taskIdentifier.getOrdinal()));
     }
 
     @Nullable
@@ -108,9 +103,9 @@ public class DefaultBuildWorkGraphController implements BuildWorkGraphController
             if (tasks.isEmpty()) {
                 return false;
             }
-            projectStateRegistry.withMutableStateOfAllProjects(() -> {
+            controller.getGradle().getOwner().getProjects().withMutableStateOfAllProjects(() -> {
                 createPlan();
-                controller.populateWorkGraph(plan, taskGraph -> taskGraph.addEntryTasks(tasks));
+                controller.populateWorkGraph(plan, workGraph -> workGraph.addEntryTasks(tasks));
             });
             return true;
         }
@@ -162,15 +157,22 @@ public class DefaultBuildWorkGraphController implements BuildWorkGraphController
     private class DefaultExportedTaskNode implements ExportedTaskNode {
         final String taskPath;
         TaskNode taskNode;
+        int ordinal;
 
-        DefaultExportedTaskNode(String taskPath) {
+        DefaultExportedTaskNode(String taskPath, int ordinal) {
             this.taskPath = taskPath;
+            this.ordinal = ordinal;
+        }
+
+        @Override
+        public int getOrdinal() {
+            return ordinal;
         }
 
         void maybeBindTask(TaskInternal task) {
             synchronized (lock) {
                 if (taskNode == null) {
-                    taskNode = taskNodeFactory.getOrCreateNode(task);
+                    taskNode = taskNodeFactory.getOrCreateNode(task, ordinal);
                 }
             }
         }
@@ -183,7 +185,7 @@ public class DefaultBuildWorkGraphController implements BuildWorkGraphController
                     if (task == null) {
                         throw new IllegalStateException("Task '" + taskPath + "' was never scheduled for execution.");
                     }
-                    taskNode = taskNodeFactory.getOrCreateNode(task);
+                    taskNode = taskNodeFactory.getOrCreateNode(task, ordinal);
                 }
                 return taskNode.getTask();
             }
@@ -198,7 +200,7 @@ public class DefaultBuildWorkGraphController implements BuildWorkGraphController
                         // Assume not scheduled yet
                         return IncludedBuildTaskResource.State.Waiting;
                     }
-                    taskNode = taskNodeFactory.getOrCreateNode(task);
+                    taskNode = taskNodeFactory.getOrCreateNode(task, ordinal);
                 }
                 if (taskNode.isExecuted() && taskNode.isSuccessful()) {
                     return IncludedBuildTaskResource.State.Success;
