@@ -18,6 +18,7 @@ package org.gradle.integtests.resolve
 import org.gradle.integtests.fixtures.AbstractIntegrationSpec
 import org.gradle.integtests.fixtures.ToBeFixedForConfigurationCache
 import org.gradle.integtests.fixtures.resolve.ResolveTestFixture
+import spock.lang.IgnoreRest
 import spock.lang.Issue
 
 import static org.hamcrest.CoreMatchers.containsString
@@ -929,6 +930,43 @@ task checkDeps(dependsOn: configurations.compile) {
         noExceptionThrown()
     }
 
+    @IgnoreRest
+    def "chooses highest version that is included in both ranges, with the highest version in the intersection missing"() {
+        given:
+        (1..10).findAll {
+            // We skip v6, as we test what happens when the top version of the intersection is missing
+            it != 6
+        }.each {
+            mavenRepo.module("org", "leaf", "$it").publish()
+        }
+        mavenRepo.module("org", "a", "1.0").dependsOn("org", "leaf", "[2,6]").publish()
+        mavenRepo.module("org", "b", "1.0").dependsOn("org", "leaf", "[4,8]").publish()
+
+        buildFile << """
+            repositories {
+                maven { url "${mavenRepo.uri}" }
+            }
+            configurations {
+                conf
+            }
+            dependencies {
+                conf 'org:a:1.0', 'org:b:1.0'
+            }
+            task checkDeps {
+                doLast {
+                    def files = configurations.conf*.name.sort()
+                    assert files == ['a-1.0.jar', 'b-1.0.jar', 'leaf-5.jar']
+                }
+            }
+        """
+
+        when:
+        run 'checkDeps'
+
+        then:
+        noExceptionThrown()
+    }
+
     def "chooses highest version that is included in both ranges when fail on conflict is set"() {
         given:
         (1..10).each {
@@ -1581,8 +1619,8 @@ task checkDeps(dependsOn: configurations.compile) {
 
     def "evicted hard dependency shouldn't add constraint on range"() {
         given:
-        4.times { mavenRepo.module("org", "e", "${it+1}").publish() }
-        4.times { mavenRepo.module("org", "a", "${it+1}").dependsOn('org', 'e', "${it+1}").publish() }
+        4.times { mavenRepo.module("org", "e", "${it + 1}").publish() }
+        4.times { mavenRepo.module("org", "a", "${it + 1}").dependsOn('org', 'e', "${it + 1}").publish() }
         mavenRepo.module("org", "b", "1").dependsOn('org', 'a', '4').publish() // this will be evicted
         mavenRepo.module('org', 'c', '1').dependsOn('org', 'd', '1').publish()
         mavenRepo.module('org', 'd', '1').dependsOn('org', 'b', '2').publish()
@@ -1951,7 +1989,7 @@ project(':sub') {
         def lib2 = mavenRepo.module('org', 'lib', '2.0').publish()
         def lib3 = mavenRepo.module('org', 'lib', '3.0').publish()
         def lib1 = mavenRepo.module('org', 'lib', '1.0')
-            // recursive dependencies between different versions of 'lib'
+        // recursive dependencies between different versions of 'lib'
             .dependencyConstraint(lib3).dependencyConstraint(lib2).withModuleMetadata().publish()
 
         mavenRepo.module('org', 'direct', '1.0').dependsOn(lib1).publish()
