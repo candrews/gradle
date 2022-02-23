@@ -416,6 +416,11 @@ performanceTest.registerAndroidTestProject("uberMobileApp", RemoteProject) {
     doLast(objects.newInstance(DeleteOkBuckDirectory))
 }
 
+performanceTest.registerTestProject("gradleBuildCurrent2", RemoteProject) {
+    remoteUri = 'https://github.com/gradle/gradle.git'
+    ref = "c1b02a85c1d02816ba0c59fd02b656f6187a4472"
+}
+
 abstract class DeleteOkBuckDirectory implements Action<RemoteProject> {
     @Inject
     abstract FileSystemOperations getFileSystemOperations()
