@@ -16,9 +16,11 @@
 
 package org.gradle.performance.regression.checkstyle
 
+
 import org.gradle.performance.AbstractCrossVersionPerformanceTest
 import org.gradle.performance.annotations.RunFor
 import org.gradle.performance.annotations.Scenario
+import org.gradle.performance.fixture.TestProjectLocator
 
 import static org.gradle.performance.annotations.ScenarioType.PER_DAY
 import static org.gradle.performance.results.OperatingSystem.LINUX
@@ -34,10 +36,9 @@ class CheckstylePerformanceTest extends AbstractCrossVersionPerformanceTest {
         runner.runs = 10
         runner.targetVersions = ["7.5-20220215231205+0000"]
         runner.tasksToRun = ["clean", "checkstyleMain", "checkstyleTest"]
-        runner.args.addAll(["--no-build-cache", "-PtestJavaVersion=11", "-Porg.gradle.java.installations.paths=/opt/jdk/adoptium-open-jdk-11,/opt/jdk/adoptium-open-jdk-17,/opt/jdk/adoptium-open-jdk-18"])
-//        File gradlePropertiesFile = new File(TestProjectLocator.findProjectDir(runner.testProject), "gradle.properties")
-//        println(gradlePropertiesFile.getAbsoluteFile())
-//        gradlePropertiesFile << "\norg.gradle.workers.max=5\n"
+        runner.args.addAll(["--no-build-cache"])
+        File gradlePropertiesFile = new File(TestProjectLocator.findProjectDir(runner.testProject), "gradle.properties")
+        gradlePropertiesFile << "\norg.gradle.java.home=/opt/jdk/adoptium-open-jdk-11\n"
 
         when:
         def result = runner.run()
