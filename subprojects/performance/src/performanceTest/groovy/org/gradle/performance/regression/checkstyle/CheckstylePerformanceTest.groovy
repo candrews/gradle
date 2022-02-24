@@ -34,7 +34,7 @@ class CheckstylePerformanceTest extends AbstractCrossVersionPerformanceTest {
         runner.runs = 10
         runner.targetVersions = ["7.5-20220215231205+0000"]
         runner.tasksToRun = ["clean", "checkstyleMain", "checkstyleTest"]
-        runner.args.addAll(["--no-build-cache", "-PtestJavaVersion=11"])
+        runner.args.addAll(["--no-build-cache", "-PtestJavaVersion=11", "-Porg.gradle.java.installations.paths=/opt/jdk/adoptium-open-jdk-11,/opt/jdk/adoptium-open-jdk-17,/opt/jdk/adoptium-open-jdk-18"])
 //        File gradlePropertiesFile = new File(TestProjectLocator.findProjectDir(runner.testProject), "gradle.properties")
 //        println(gradlePropertiesFile.getAbsoluteFile())
 //        gradlePropertiesFile << "\norg.gradle.workers.max=5\n"

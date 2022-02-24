@@ -382,7 +382,9 @@ class PerformanceTestExtension(
         registerTestProject(testProject, T::class.java, configuration)
 
     fun <T : Task> registerTestProject(testProject: String, type: Class<T>, configurationAction: Action<in T>): TaskProvider<T> {
-        return doRegisterTestProject(testProject, type, configurationAction)
+        return doRegisterTestProject(testProject, type, configurationAction) {
+            environment("JAVA_HOME", LazyEnvironmentVariable { javaLauncher.get().metadata.installationPath.asFile.absolutePath })
+        }
     }
 
     fun <T : Task> registerAndroidTestProject(testProject: String, type: Class<T>, configurationAction: Action<in T>): TaskProvider<T> {
